@@ -1,154 +1,150 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import TabLayout from './naivgationBar';
 import { AntDesign, Entypo, Feather } from '@expo/vector-icons';
+import TabLayout from './naivgationBar';
 
-
-
-
-const scan = () => {
+const Scan = () => {
   const [image, setImage] = useState(null);
+  const [messages, setMessages] = useState([
+    { id: 1, type: 'bot', text: 'Hi! Please upload your prescription image to begin.' }
+  ]);
 
-  // Request permissions for camera and gallery
+  const addMessage = (type, text, imageUri = null) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: prev.length + 1, type, text, image: imageUri },
+    ]);
+  };
+
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
     const { status: mediaLibraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (cameraStatus !== 'granted' || mediaLibraryStatus !== 'granted') {
-      Alert.alert(
-        'Permission Denied',
-        'Sorry, we need camera and gallery permissions to make this work!'
-      );
+      Alert.alert('Permission Denied', 'Camera & gallery permissions are required.');
       return false;
     }
     return true;
   };
 
-  // Open gallery to pick an image
   const pickImage = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
-
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
-
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setImage(uri);
+      addMessage('user', 'Picked image from gallery.', uri);
     }
   };
 
-  // Open camera to take a photo
   const takePhoto = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;
-
     let result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,
     });
-
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setImage(uri);
+      addMessage('user', 'Captured image from camera.', uri);
     }
   };
 
-  // Upload image to a server (mock function)
   const uploadImage = async () => {
-    if (!image) {
-      Alert.alert('No Image', 'Please select or take a photo first.');
-      return;
-    }
-
-    // Here you can implement the logic to upload the image to your server
-    // For example, using fetch or axios
-    const formData = new FormData();
-    formData.append('file', {
-      uri: image,
-      name: 'photo.jpg',
-      type: 'image/jpeg',
-    });
-
+    if (!image) return;
+    addMessage('bot', 'Uploading image...');
     try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: image,
+        name: 'photo.jpg',
+        type: 'image/jpeg',
+      });
+
       const response = await fetch('https://your-server.com/upload', {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       const result = await response.json();
-      Alert.alert('Success', 'Image uploaded successfully!');
-      console.log(result);
+      addMessage('bot', 'Image uploaded successfully! Ready to analyze.');
     } catch (error) {
-      Alert.alert('Error', 'Failed to upload image.');
-      console.error(error);
+      addMessage('bot', 'Failed to upload image. Please try again.');
     }
   };
 
-  return  <>
-      <View className="flex-1 justify-center items-center mt-12 p-5 bg-blue-50">
-        {/* Title */}
-        <Text className=" text-2xl font-bold mb-5 text-center">
-          Upload Prescription
-        </Text>
+  return (
+    <>
+      <KeyboardAvoidingView
+        className="flex-1 bg-blue-50"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView className="p-4 pt-6 mt-7 flex-1">
+          {messages.map((msg) => (
+            <View
+              key={msg.id}
+              className={`my-2 max-w-[80%] px-4 py-2 rounded-2xl ${
+                msg.type === 'user' ? 'bg-blue-500 self-end' : 'bg-white self-start'
+              }`}
+              style={{ elevation: 3 }}
+            >
+              {msg.image && (
+                <Image
+                  source={{ uri: msg.image }}
+                  className="w-40 h-40 rounded-lg mb-2"
+                  resizeMode="cover"
+                />
+              )}
+              <Text className={`${msg.type === 'user' ? 'text-white' : 'text-gray-800'}`}>
+                {msg.text}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
 
-        {/* Display selected image or upload icon */}
-        <View className="w-48 h-48 justify-center items-center border-2 border-blue-500 rounded-lg mb-5">
-          {image ? (
-            <Image source={{ uri: image }} className="w-full h-full rounded-lg" />
-          ) : (
-            <Entypo name="upload" size={50} color="#007BFF" />
+        {/* Action Buttons */}
+        <View className="p-4 space-y-3 mb-6">
+          <TouchableOpacity
+            className="flex-row bg-blue-500 py-3 px-5 mb-3 rounded-full justify-center items-center"
+            onPress={pickImage}
+          >
+            <AntDesign name="picture" size={20} color="white" />
+            <Text className="text-white text-sm font-bold ml-2">Pick Image from Gallery</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-row bg-blue-500 py-3 px-5 rounded-full mb-3 justify-center items-center"
+            onPress={takePhoto}
+          >
+            <Feather name="camera" size={20} color="white" />
+            <Text className="text-white text-sm font-bold ml-2">Take a Photo</Text>
+          </TouchableOpacity>
+
+          {image && (
+            <TouchableOpacity
+              className="flex-row bg-green-500 py-3 px-5 rounded-full justify-center items-center"
+              onPress={uploadImage}
+            >
+              <Entypo name="upload" size={20} color="white" />
+              <Text className="text-white text-sm font-bold ml-2">Read Prescription</Text>
+            </TouchableOpacity>
           )}
         </View>
+      </KeyboardAvoidingView>
 
-        {/* Buttons for picking image and taking photo */}
-
-        {/* Upload button (commented out for now) */}
-                  <TouchableOpacity
-                    className="flex-row bg-blue-500 py-3 px-5 rounded-full mb-4 w-64 justify-center items-center"
-                    onPress={pickImage}
-                  >
-                    <AntDesign name="picture" size={24} color="white" className="mr-2" />
-                    <Text className="text-white text-lg font-bold">
-                      Pick Image from Gallery
-                    </Text>
-                  </TouchableOpacity>
-          
-                  <TouchableOpacity
-                    className="flex-row bg-blue-500 py-3 px-5 rounded-full mb-4 w-64 justify-center items-center"
-                    onPress={takePhoto}
-                    >
-                    <Feather name="camera" size={24} color="white" className="mr-2" />
-                    <Text className="text-white text-lg font-bold">
-                      Take a Photo
-                    </Text>
-                  </TouchableOpacity>
-
-                  {!image? '':
-                    <TouchableOpacity
-                      className="flex-row bg-green-500 py-3 px-5 rounded-full mb-4 w-64 justify-center items-center"
-                      onPress={uploadImage}
-                      >
-                      <Text className="text-white text-lg font-bold">
-                      Read Prescritpion
-                      </Text>
-                      </TouchableOpacity>
-
-                  }
-
-      </View >
-                  <TabLayout/>
+      <TabLayout />
     </>
-
+  );
 };
 
-export default scan;
-
+export default Scan;
