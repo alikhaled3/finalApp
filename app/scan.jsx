@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, Alert, ScrollView, KeyboardAvoidin
 import * as ImagePicker from 'expo-image-picker';
 import { AntDesign, Entypo, Feather } from '@expo/vector-icons';
 import TabLayout from './naivgationBar';
-
+import axios from 'axios';
 const Scan = () => {
   const [image, setImage] = useState(null);
   const [messages, setMessages] = useState([
@@ -64,17 +64,13 @@ const Scan = () => {
     addMessage('bot', 'Uploading image...');
     try {
       const formData = new FormData();
-      formData.append('file', {
+      formData.append('image', {
         uri: image,
         name: 'photo.jpg',
         type: 'image/jpeg',
       });
 
-      const response = await fetch('https://your-server.com/upload', {
-        method: 'POST',
-        body: formData,
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await axios.post('http://localhost:5000/process/extract_text', formData);
 
       const result = await response.json();
       addMessage('bot', 'Image uploaded successfully! Ready to analyze.');
